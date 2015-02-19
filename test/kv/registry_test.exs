@@ -11,12 +11,18 @@ defmodule KV.RegistryTest do
   end
 
   setup do
+    ets = :ets.new(:registry_table, [:set, :public])
+    registry = start_registry(ets)
+    {:ok, registry: registry, ets: ets}
+  end
+
+  defp start_registry(ets) do
     {:ok, sup} = KV.Bucket.Supervisor.start_link
     {:ok, manager} = GenEvent.start_link
-    {:ok, registry} = KV.Registry.start_link(:registry_table, manager, sup)
+    {:ok, registry} = KV.Registry.start_link(ets, manager, sup)
 
     GenEvent.add_mon_handler(manager, Forwarder, self())
-    {:ok, registry: registry, ets: :registry_table}
+    registry
   end
 
   test "spawns buckets", %{registry: registry, ets: ets} do
@@ -53,5 +59,19 @@ defmodule KV.RegistryTest do
 
     Agent.stop(bucket)
     assert_receive {:exit, "shopping", ^bucket}
+  end
+
+  test "monitors existing entries", %{registry: registry, ets: ets} do
+    bucket = KV.Registry.create(registry, "shopping")
+    # kill the registry. Unlink first, otherwise will kill the test
+    Process.unlink(registry)
+    Process.exit(registry, :shutdown)
+    # start new registry with existing data
+    start_registry(ets)
+    assert KV.Registry.lookup(ets, "shopping") == {:ok, bucket}
+    # once bucket dies, we should receive notifications
+    Process.exit(bucket, :shutdown)
+    assert_receive {:exit, "shopping", ^bucket}
+    assert KV.Registry.lookup(ets, "shopping") == :error
   end
 end
