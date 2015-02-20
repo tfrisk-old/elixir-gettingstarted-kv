@@ -33,7 +33,6 @@ defmodule KV.Router do
   The routing table.
   """
   def table do
-    [{?a..?m, :"foo@localhost"},
-     {?n..?z, :"bar@localhost"}]
+    Application.get_env(:kv, :routing_table)
   end
 end
