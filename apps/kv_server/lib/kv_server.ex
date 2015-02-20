@@ -8,7 +8,7 @@ defmodule KVServer do
 
     children = [
       supervisor(Task.Supervisor, [[name: KVServer.TaskSupervisor]]),
-      worker(Task, [KVServer, :accept, [4040]])
+      worker(Task, [KVServer, :accept, [Application.get_env(:kv_server, :listen_port)]])
     ]
 
     # See http://elixir-lang.org/docs/stable/elixir/Supervisor.html
